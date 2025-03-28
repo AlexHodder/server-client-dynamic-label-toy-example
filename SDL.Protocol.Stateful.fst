@@ -5,8 +5,6 @@ open DY.Core
 open DY.Lib
 open SDL.Protocol.Total
 
-open LabelExtension
-
 (*** State Type ***)
 
 [@@ with_bytes bytes]

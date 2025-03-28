@@ -3,7 +3,6 @@ module SDL.Protocol.Total.Proof
 open Comparse
 open DY.Core
 open DY.Lib
-open LabelExtension
 
 open SDL.Protocol.Total
 open SDL.Protocol.Stateful

@@ -9,8 +9,6 @@ open SDL.Protocol.Total.Proof
 
 open SDL.Protocol.Stateful
 
-open LabelExtension
-
 #set-options "--fuel 0 --ifuel 1 --z3rlimit 25  --z3cliopt 'smt.qi.eager_threshold=100'"
 
 /// This module proves invariant preservation
