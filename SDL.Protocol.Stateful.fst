@@ -50,7 +50,7 @@ let prepare_msg1 server =
   let* nonce = mk_rand NoUsage (reveal_principal_label i) 32 in
 
   // reveal nonce to the server
-  reveal_event server i;*
+  trigger_reveal_event server server i;*
 
   trigger_event server (Generate server nonce i);*
   let* sess_id = new_session_id server in
@@ -67,7 +67,7 @@ let send_msg1 global_sess_id server client sess_id =
 
   guard_tr(server = server');*?
 
-  reveal_event client i;* // generate a reveal
+  trigger_reveal_event server client i;* // generate a reveal
 
   let*? pk_client = get_public_key server global_sess_id.pki (LongTermPkeKey "SDL.PublicKey") client in
   let* pk_nonce = mk_rand PkeNonce (long_term_key_label server) 32 in

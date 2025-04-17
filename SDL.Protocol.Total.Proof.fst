@@ -59,15 +59,15 @@ val compute_message1_proof :
     is_secret (long_term_key_label server) tr pk_nonce /\
     pk_nonce `has_usage tr` PkeNonce /\
     is_public_key_for tr pk_client (LongTermPkeKey "SDL.PublicKey") client /\
-    reveal_event_triggered tr server i /\
-    reveal_event_triggered tr client i
+    reveal_event_triggered tr server server i /\
+    reveal_event_triggered tr server client i
   ))
   (ensures is_publishable tr (compute_message1 server client pk_client nonce pk_nonce))
 let compute_message1_proof tr server client pk_client nonce pk_nonce =
   let msg = Msg1 {server; nonce} in
   let i = Rand?.time nonce in
-  reveal_principal_label_can_flow_to_principal_label tr server i;
-  reveal_principal_label_can_flow_to_principal_label tr client i;
+  reveal_principal_label_can_flow_to_principal_label tr server server i;
+  reveal_principal_label_can_flow_to_principal_label tr server client i;
 
   serialize_wf_lemma message (is_knowable_by (long_term_key_label server) tr) msg;
   serialize_wf_lemma message (is_knowable_by (long_term_key_label client) tr) msg

@@ -48,7 +48,7 @@ let event_predicate_sdl: event_predicate sdl_event =
       prin == server /\
       is_secret (reveal_principal_label i) tr nonce /\
       rand_generated_at tr i nonce /\
-      reveal_event_triggered tr server i
+      reveal_event_triggered tr server server i
     )
     | Respond client server nonce -> (
       prin == client /\
@@ -88,39 +88,9 @@ instance protocol_invariants_sdl: protocol_invariants = {
 
 /// Lemmas that the global state predicate contains all the local ones
 
-// Below, the `has_..._predicate` are called with the implicit argument `#protocol_invariants_sdl`.
-// This argument could be omitted as it can be instantiated automatically by F*'s typeclass resolution algorithm.
-// However we instantiate it explicitly here so that the meaning of `has_..._predicate` is easier to understand.
+let _ = do_split_boilerplate mk_state_pred_correct all_sessions
+let _ = do_split_boilerplate mk_event_pred_correct all_events
 
-val all_sessions_has_all_sessions: unit -> Lemma (norm [delta_only [`%all_sessions; `%for_allP]; iota; zeta] (for_allP (has_local_bytes_state_predicate #protocol_invariants_sdl) all_sessions))
-let all_sessions_has_all_sessions () =
-  assert_norm(List.Tot.no_repeats_p (List.Tot.map dfst (all_sessions)));
-  mk_state_pred_correct #protocol_invariants_sdl all_sessions;
-  norm_spec [delta_only [`%all_sessions; `%for_allP]; iota; zeta] (for_allP (has_local_bytes_state_predicate #protocol_invariants_sdl) all_sessions)
-
-val protocol_invariants_sdl_has_pki_invariant: squash (has_pki_invariant #protocol_invariants_sdl)
-let protocol_invariants_sdl_has_pki_invariant = all_sessions_has_all_sessions ()
-
-val protocol_invariants_sdl_has_private_keys_invariant: squash (has_private_keys_invariant #protocol_invariants_sdl)
-let protocol_invariants_sdl_has_private_keys_invariant = all_sessions_has_all_sessions ()
-
-// As an example, below `#protocol_invariants_sdl` is omitted and instantiated using F*'s typeclass resolution algorithm
-val protocol_invariants_sdl_has_sdl_session_invariant: squash (has_local_state_predicate state_predicate_sdl)
-let protocol_invariants_sdl_has_sdl_session_invariant = all_sessions_has_all_sessions ()
-
-/// Lemmas that the global event predicate contains all the local ones
-
-val all_events_has_all_events: unit -> Lemma (norm [delta_only [`%all_events; `%for_allP]; iota; zeta] (for_allP (has_compiled_event_pred #protocol_invariants_sdl) all_events))
-let all_events_has_all_events () =
-  assert_norm(List.Tot.no_repeats_p (List.Tot.map fst (all_events)));
-  mk_event_pred_correct #protocol_invariants_sdl all_events;
-  norm_spec [delta_only [`%all_events; `%for_allP]; iota; zeta] (for_allP (has_compiled_event_pred #protocol_invariants_sdl) all_events);
-  let dumb_lemma (x:prop) (y:prop): Lemma (requires x /\ x == y) (ensures y) = () in
-  dumb_lemma (for_allP (has_compiled_event_pred #protocol_invariants_sdl) all_events) (norm [delta_only [`%all_events; `%for_allP]; iota; zeta] (for_allP (has_compiled_event_pred #protocol_invariants_sdl) all_events))
-
-// As an example, below `#protocol_invariants_sdl` is omitted and instantiated using F*'s typeclass resolution algorithm
-val protocol_invariants_sdl_has_sdl_event_invariant: squash (has_event_pred event_predicate_sdl)
-let protocol_invariants_sdl_has_sdl_event_invariant = all_events_has_all_events ()
 
 (*** PROOFS ***)
 
@@ -148,16 +118,30 @@ val send_msg1_proof :
   ))
 let send_msg1_proof tr global_sess_id server client sess_id =
   match get_state server sess_id tr with
-  | (Some (ServerGenerateNonce server' nonce i ), tr') -> (
-    let (_, tr'') = reveal_event client i tr' in
-    reveal_event_trace_invariant client i tr';
-    reveal_event_event_triggered client i tr';
-    match get_public_key server global_sess_id.pki (LongTermPkeKey "SDL.PublicKey") client tr'' with
-    | (None, tr''') -> ()
-    | (Some pk_client, tr''') -> (
-      let (pk_nonce, tr4) = mk_rand PkeNonce (long_term_key_label server) 32 tr''' in
-      compute_message1_proof tr4 server client pk_client nonce pk_nonce
-    )
+  | (Some (ServerGenerateNonce server' nonce i), tr') -> (
+
+    assert(has_local_state_predicate state_predicate_sdl); // have to assert this
+
+    match guard_tr (server = server') tr' with
+    | (Some _, tr') -> (
+      let ts = find_event_triggered_at_timestamp tr server (Generate server nonce i) in
+      event_triggered_at_implies_pred #protocol_invariants_sdl event_predicate_sdl tr' ts server (Generate server nonce i);
+
+      let (_, tr'') = trigger_reveal_event server client i tr' in
+
+      assume(has_event_pred #reveal_event_format #reveal_event #protocol_invariants_sdl (fun _ _ _ -> True));
+      trigger_reveal_event_trace_invariant (fun _ _ _ -> True) server client i tr';
+      trigger_reveal_event_reveal_event_triggered server client i tr';
+
+      match get_public_key server global_sess_id.pki (LongTermPkeKey "SDL.PublicKey") client tr'' with
+      | (None, tr''') -> ()
+      | (Some pk_client, tr''') -> (
+        let (pk_nonce, tr4) = mk_rand PkeNonce (long_term_key_label server) 32 tr''' in
+
+        compute_message1_proof tr4 server client pk_client nonce pk_nonce
+      ))
+    | _ -> ()
+
   )
   | _ -> ()
 
