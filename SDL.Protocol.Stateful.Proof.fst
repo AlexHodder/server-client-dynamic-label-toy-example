@@ -59,6 +59,9 @@ let event_predicate_sdl: event_predicate sdl_event =
       )
     )
 
+let reveal_event_predicate_sdl : reveal_event_predicate =
+  fun tr prin e ->
+   True
 
 /// List of all local state predicates.
 
@@ -71,7 +74,8 @@ let all_sessions = [
 /// List of all local event predicates.
 
 let all_events = [
-  (event_sdl_event.tag, compile_event_pred event_predicate_sdl)
+  mk_event_tag_and_pred event_predicate_sdl;
+  mk_event_tag_and_pred reveal_event_predicate_sdl
 ]
 
 /// Create the global trace invariants.
@@ -129,8 +133,7 @@ let send_msg1_proof tr global_sess_id server client sess_id =
 
       let (_, tr'') = trigger_reveal_event server client i tr' in
 
-      assume(has_event_pred #reveal_event_format #reveal_event #protocol_invariants_sdl (fun _ _ _ -> True));
-      trigger_reveal_event_trace_invariant (fun _ _ _ -> True) server client i tr';
+      trigger_reveal_event_trace_invariant reveal_event_predicate_sdl server client i tr';
       trigger_reveal_event_reveal_event_triggered server client i tr';
 
       match get_public_key server global_sess_id.pki (LongTermPkeKey "SDL.PublicKey") client tr'' with
